@@ -36,10 +36,10 @@ graph TD
 
 ## ✨ 主要功能
 
-- 📄 **高质量转换**：使用 [src/pdf2png.py](src/pdf2png.py) 确保 PDF 到图片的无损转换。
-- 🖼️ **智能修复**：[src/utils/image_inpainter.py](src/utils/image_inpainter.py) 自动识别并抹除 NotebookLM 的特定水印。
-- 🤖 **自动化流程**：[src/utils/screenshot_automation.py](src/utils/screenshot_automation.py) 负责模拟快捷键和鼠标点击，实现无人值守操作。
-- 🔄 **无缝合并**：[src/ppt_combiner.py](src/ppt_combiner.py) 将零散的幻灯片完美整合。
+- 📄 **高质量转换**：使用 [notebooklm2ppt/pdf2png.py](notebooklm2ppt/pdf2png.py) 确保 PDF 到图片的无损转换。
+- 🖼️ **智能修复**：[notebooklm2ppt/utils/image_inpainter.py](notebooklm2ppt/utils/image_inpainter.py) 自动识别并抹除 NotebookLM 的特定水印。
+- 🤖 **自动化流程**：[notebooklm2ppt/utils/screenshot_automation.py](notebooklm2ppt/utils/screenshot_automation.py) 负责模拟快捷键 and 鼠标点击，实现无人值守操作。
+- 🔄 **无缝合并**：[notebooklm2ppt/ppt_combiner.py](notebooklm2ppt/ppt_combiner.py) 将零散的幻灯片完美整合。
 - ⚙️ **高度可定制**：支持 DPI、延迟、显示比例等多种参数微调。
 
 ---
@@ -61,12 +61,18 @@ graph TD
 3. 默认快捷键应为 `Ctrl + Shift + A`。如果修改了，请同步修改代码中的配置。
 4. **测试**：手动按下快捷键，确保能看到圈选界面并出现“转换为PPT”选项。
 
-### 3. 安装项目依赖
+### 3. 安装
+
+你可以直接通过 pip 安装：
 
 ```bash
-git clone https://github.com/elliottzheng/NotebookLM2PPT.git
-cd NotebookLM2PPT
-pip install -r requirements.txt
+pip install notebooklm2ppt -U
+```
+
+或者从源码安装：
+
+```bash
+pip install git+https://github.com/elliottzheng/NotebookLM2PPT.git
 ```
 
 ---
@@ -75,13 +81,22 @@ pip install -r requirements.txt
 
 ### 基础命令
 
-直接运行 [main.py](main.py) 处理默认示例或指定文件：
+安装后，你可以直接在命令行中使用 `notebooklm2ppt` 命令：
 
 ```bash
-# 处理默认文件
-python main.py
-
 # 处理指定 PDF
+notebooklm2ppt path/to/your/document.pdf
+```
+或者
+```bash
+python -m notebooklm2ppt path/to/your/document.pdf
+```
+
+你可以在任何目录下运行该命令，程序会在当前目录下创建一个 `workspace` 文件夹存放中间文件和最终输出的 PPT。
+
+也可以clone本项目后通过 `python main.py` 运行：
+
+```bash
 python main.py path/to/your/document.pdf
 ```
 
@@ -89,16 +104,16 @@ python main.py path/to/your/document.pdf
 
 | 场景 | 命令示例 |
 | :--- | :--- |
-| **通用 PDF 转换** (不带去水印) | `python main.py --no-inpaint my_doc.pdf` |
-| **高分辨率转换** (提高识别率) | `python main.py --dpi 200 my_doc.pdf` |
-| **调整显示比例** (适配小屏幕) | `python main.py -s 0.7 my_doc.pdf` |
-| **自定义输出路径** | `python main.py -o my_workspace my_doc.pdf` |
+| **通用 PDF 转换** (不带去水印) | `notebooklm2ppt --no-inpaint my_doc.pdf` |
+| **高分辨率转换** (提高识别率) | `notebooklm2ppt --dpi 200 my_doc.pdf` |
+| **调整显示比例** (适配小屏幕) | `notebooklm2ppt -s 0.7 my_doc.pdf` |
+| **自定义输出路径** | `notebooklm2ppt -o my_workspace my_doc.pdf` |
 
 ### 完整参数说明
 
 | 参数 | 简写 | 说明 | 默认值 |
 | :--- | :--- | :--- | :--- |
-| `pdf_file` | - | 目标 PDF 文件路径 | `examples/floyd.pdf` |
+| `pdf_file` | - | 目标 PDF 文件路径 | - |
 | `--delay` | `-d` | 每页处理间的等待延迟（秒） | `2` |
 | `--timeout` | `-t` | 等待 PPT 生成的超时时间（秒） | `50` |
 | `--dpi` | - | 渲染图片的 DPI（去水印建议 150） | `150` |

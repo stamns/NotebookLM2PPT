@@ -1,0 +1,38 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "notebooklm2ppt"
+version = "0.1.0"
+description = "将 PDF 转换为可编辑 PowerPoint 演示文稿的工具"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+authors = [
+    {name = "Elliott Zheng", email = "elliott.zheng@foxmail.com"},
+]
+dependencies = [
+    "PyMuPDF",
+    "opencv-python",
+    "numpy",
+    "requests",
+    "spire.presentation",
+    "python-pptx",
+    "pywin32; sys_platform == 'win32'",
+    "pywinauto; sys_platform == 'win32'",
+    "scikit-image",
+    "Pillow",
+    "pyinpaint",
+]
+
+[project.urls]
+Homepage = "https://github.com/elliottzheng/NotebookLM2PPT"
+Repository = "https://github.com/elliottzheng/NotebookLM2PPT.git"
+Issues = "https://github.com/elliottzheng/NotebookLM2PPT/issues"
+
+[project.scripts]
+notebooklm2ppt = "notebooklm2ppt.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["notebooklm2ppt"]
