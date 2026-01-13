@@ -9,8 +9,60 @@ from .cli import process_pdf_to_ppt
 from .ppt_combiner import combine_ppt
 from .utils.screenshot_automation import screen_width, screen_height
 import json
+import ctypes
 
 CONFIG_FILE = Path("./config.json")
+
+
+def enable_windows_dpi_awareness(root=None):
+    """Enable DPI awareness on Windows and adjust Tk scaling.
+
+    Call this before creating UI or immediately after creating `root`.
+    This helps fix display issues when Windows scaling is 200%.
+    """
+    if sys.platform != "win32":
+        return
+    # Try modern APIs first, fall back gracefully
+    try:
+        user32 = ctypes.windll.user32
+        # Try SetProcessDpiAwarenessContext (Windows 10+)
+        if hasattr(user32, 'SetProcessDpiAwarenessContext'):
+            try:
+                # DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 = -4
+                user32.SetProcessDpiAwarenessContext(ctypes.c_void_p(-4))
+            except Exception:
+                pass
+        else:
+            # Try shcore.SetProcessDpiAwareness(PROCESS_PER_MONITOR_DPI_AWARE=2)
+            try:
+                shcore = ctypes.windll.shcore
+                shcore.SetProcessDpiAwareness(2)
+            except Exception:
+                # Older fallback
+                try:
+                    user32.SetProcessDPIAware()
+                except Exception:
+                    pass
+
+        # If a root was provided, try to set tk scaling to system DPI
+        if root is not None:
+            try:
+                # Get system DPI (fallback to 96)
+                dpi = 96
+                if hasattr(user32, 'GetDpiForSystem'):
+                    dpi = user32.GetDpiForSystem()
+                elif hasattr(user32, 'GetDeviceCaps'):
+                    # Last resort: get DC dpi
+                    hdc = user32.GetDC(0)
+                    # LOGPIXELSX = 88
+                    gdi32 = ctypes.windll.gdi32
+                    dpi = gdi32.GetDeviceCaps(hdc, 88)
+                scaling = float(dpi) / 96.0
+                root.tk.call('tk', 'scaling', scaling)
+            except Exception:
+                pass
+    except Exception:
+        pass
 
 
 class TextRedirector:
@@ -363,7 +415,19 @@ class AppGUI:
             self.start_btn.config(state=tk.NORMAL)
 
 def launch_gui():
+    # Enable Windows DPI awareness before creating the Tk root where possible
+    try:
+        enable_windows_dpi_awareness(None)
+    except Exception:
+        pass
+
     root = tk.Tk()
+    # After root exists, apply scaling using the helper (this will call tk scaling)
+    try:
+        enable_windows_dpi_awareness(root)
+    except Exception:
+        pass
+
     app = AppGUI(root)
     root.mainloop()
 
