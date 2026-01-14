@@ -214,10 +214,14 @@ def refine_ppt(tmp_image_dir, json_file, ppt_file, png_dir, png_files, final_out
         # 替换背景    
         background = slide.SlideBackground
         old_bg_file = "old_bg.png"
-        background.Fill.PictureFill.Picture.EmbedImage.Image.Save(old_bg_file)
-        old_bg_cv = np.array(Image.open(old_bg_file))
-        os.remove(old_bg_file)
-
+        try:
+            background.Fill.PictureFill.Picture.EmbedImage.Image.Save(old_bg_file)
+            old_bg_cv = np.array(Image.open(old_bg_file))
+            os.remove(old_bg_file)
+        except:
+            print("No existing background image found in slide ", page_index)
+            old_bg_cv = None
+        # 替换背景    
         background.Type = BackgroundType.Custom
 
         # Set the fill mode of the slide's background as a picture fill
@@ -231,7 +235,8 @@ def refine_ppt(tmp_image_dir, json_file, ppt_file, png_dir, png_files, final_out
 
         image_h, image_w, _ = image_cv.shape
 
-        old_bg_cv = cv2.resize(old_bg_cv, (image_w, image_h), interpolation=cv2.INTER_CUBIC)
+        if old_bg_cv is not None:
+            old_bg_cv = cv2.resize(old_bg_cv, (image_w, image_h), interpolation=cv2.INTER_CUBIC)
 
         image_scale = image_w / pdf_w
 
@@ -251,10 +256,10 @@ def refine_ppt(tmp_image_dir, json_file, ppt_file, png_dir, png_files, final_out
             
             diff = compute_four_point_diff(image_cv, l, t, r, b)
             print("div=", diversity, " diff=", diff, " text_block=", text_block)
-            if diversity < 10 and diff < 9: # 边缘多样性低，认为是纯色区域，则可以直接填充
+            if old_bg_cv is None or (diversity < 10 and diff < 9): # 边缘多样性低，认为是纯色区域，则可以直接填充
                 cv2.rectangle(image_cv, (l, t), (r, b), fill_color, thickness=-1)
             else: # 边缘多样性高，保留原背景
-                image_cv[t:b, l:r] = old_bg_cv[t:b, l:r] # 保留原背景
+                image_cv[t:b, l:r] = old_bg_cv[t:b, l:r] # 保留原背景的前提是要有原背景图
 
         tmp_bg_file = png_file.replace('.png', '_bg.png')
         Image.fromarray(image_cv).save(tmp_bg_file)
