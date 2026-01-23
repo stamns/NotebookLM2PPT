@@ -3,10 +3,10 @@ import numpy as np
 from PIL import Image, ImageDraw
 import os
 import requests
-from sklearn.cluster import DBSCAN
 from spire.presentation.common import *
 from spire.presentation import *
 from .ppt_combiner import clean_ppt
+from .edge_diversity import compute_edge_diversity_numpy
 
 def recursive_blocks(blocks):
     result = []
@@ -81,30 +81,6 @@ def load_json(file_path):
     with open(file_path, 'r', encoding='utf-8') as f:
         data = json.load(f)
     return data
-
-
-
-
-def compute_edge_diversity(image_cv, left, top, right, bottom):
-    left, top, right, bottom = round(left), round(top), round(right), round(bottom)
-    top_edge = image_cv[top-1:top, left:right]
-    bottom_edge = image_cv[bottom:bottom+1, left:right]
-    left_edge = image_cv[top:bottom, left-1:left]
-    right_edge = image_cv[top:bottom, right:right+1]
-    edges = [top_edge, bottom_edge, left_edge, right_edge]
-    flatten_points = np.concatenate([edge.reshape(-1, 3) for edge in edges], axis=0)
-    clustering = DBSCAN(eps=2, min_samples=3).fit(flatten_points)
-
-    counts = []
-    for label in np.unique(clustering.labels_):
-        count = np.sum(clustering.labels_==label)
-        counts.append(count)
-
-    main_ratio = np.max(counts) / np.sum(counts)  # 主要颜色占比
-
-    main_color = flatten_points[clustering.labels_==np.argmax(counts)].mean(axis=0)
-    return 1 - main_ratio, main_color
-
 
 
 def get_indices_from_png_names(png_names):
@@ -235,8 +211,7 @@ def refine_ppt(tmp_image_dir, json_file, ppt_file, png_dir, png_files, final_out
         for text_block in text_blocks:
             bbox = text_block['bbox']
             l, t, r, b = map(round, bbox)
-            diversity, fill_color = compute_edge_diversity(image_cv, l, t, r, b)
-            fill_color = fill_color.astype(np.uint8).tolist()
+            diversity, fill_color = compute_edge_diversity_numpy(image_cv, l, t, r, b)
             print("div=", diversity, " text_block=", text_block)
             if old_bg_cv is None or diversity < 0.5: # 边缘多样性低，认为是纯色区域，则可以直接填充
                 image_cv[t:b, l:r] = fill_color

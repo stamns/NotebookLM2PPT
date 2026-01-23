@@ -95,8 +95,8 @@ class AppGUI:
     def __init__(self, root):
         self.root = root
         self.root.title(f"NotebookLM2PPT v{__version__} - PDF 转 PPT 工具")
-        self.root.geometry("850x750")
-        self.root.minsize(750, 550)
+        self.root.geometry("850x800")
+        self.root.minsize(750, 800)
         
         self.stop_flag = False
         

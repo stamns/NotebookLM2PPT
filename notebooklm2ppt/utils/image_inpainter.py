@@ -2,6 +2,7 @@
 import numpy as np
 from skimage.restoration import inpaint
 from PIL import Image
+from .edge_diversity import compute_edge_diversity_numpy
 
 
 def inpaint_image(image_path, output_path):
@@ -25,7 +26,15 @@ def inpaint_image(image_path, output_path):
     c1 = int(c1 * ratio)
     c2 = int(c2 * ratio)
 
-    mask[r1:r2, c1:c2] = True
+    edge_diversity, fill_color = compute_edge_diversity_numpy(image_defect, c1, r1, c2, r2)
 
-    image_result = inpaint.inpaint_biharmonic(image_defect, mask, channel_axis=-1)
-    Image.fromarray((image_result*255).astype("uint8")).save(output_path)
+    if edge_diversity < 0.1: # 直接填充完事
+        print("直接填充",edge_diversity, fill_color)
+        image_defect[r1:r2, c1:c2] = fill_color
+        image_result = image_defect
+    else:
+        print("需要修复",edge_diversity, fill_color)
+        mask[r1:r2, c1:c2] = True
+        image_result = inpaint.inpaint_biharmonic(image_defect, mask, channel_axis=-1)
+        image_result = (image_result*255).astype("uint8")
+    Image.fromarray(image_result).save(output_path)

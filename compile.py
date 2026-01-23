@@ -30,5 +30,5 @@ if __name__ == "__main__":
         flags = "-F"
     else:
         flags = "-D"
-    command = f'pyinstaller --clean {flags} -w -n {output_name} --optimize=2 --collect-all spire.presentation --collect-all pywinauto main.py'
+    command = f'pyinstaller --clean {flags} -w -n {output_name} --optimize=2 --collect-all spire.presentation main.py'
     os.system(command)
