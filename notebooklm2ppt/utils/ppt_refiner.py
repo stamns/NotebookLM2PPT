@@ -205,7 +205,8 @@ def refine_ppt(tmp_image_dir, json_file, ppt_file, png_dir, png_files, final_out
 
         image_scale = image_w / pdf_w
 
-        text_blocks = get_scaled_para_blocks(image_scale, pdf_info, page_index, cond='no_image')
+        # 对于所有文本块和图片块都进行填充
+        text_blocks = get_scaled_para_blocks(image_scale, pdf_info, page_index, cond='no_image') + get_scaled_para_blocks(image_scale, pdf_info, page_index, cond='only_image')
 
 
         for text_block in text_blocks:
