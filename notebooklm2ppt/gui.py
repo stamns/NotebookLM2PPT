@@ -179,7 +179,8 @@ class AppGUI:
         output_entry = ttk.Entry(file_frame, textvariable=self.output_dir_var, width=60)
         output_entry.grid(row=1, column=1, padx=5, pady=5, sticky="ew")
         self.add_context_menu(output_entry)
-        ttk.Button(file_frame, text="浏览...", command=self.browse_output).grid(row=1, column=2, pady=5)        
+        ttk.Button(file_frame, text="浏览...", command=self.browse_output).grid(row=1, column=2, pady=5)
+        ttk.Button(file_frame, text="打开", command=self.open_output_dir).grid(row=1, column=3, pady=5, padx=5)        
 
         # Options
         opt_frame = ttk.LabelFrame(main_frame, text="⚙️ 转换选项", padding="10")
@@ -301,6 +302,25 @@ class AppGUI:
         if directory:
             self.output_dir_var.set(directory)
             print(f"已设置新目录: {directory}")
+
+    def open_output_dir(self):
+        output_dir = self.output_dir_var.get().strip().strip('"')
+        if not output_dir:
+            messagebox.showwarning("提示", "请先设置输出目录")
+            return
+        
+        if not os.path.exists(output_dir):
+            try:
+                os.makedirs(output_dir, exist_ok=True)
+                print(f"已创建输出目录: {output_dir}")
+            except Exception as e:
+                messagebox.showerror("错误", f"无法创建输出目录: {str(e)}")
+                return
+        
+        try:
+            os.startfile(output_dir)
+        except Exception as e:
+            messagebox.showerror("错误", f"无法打开输出目录: {str(e)}")
 
     def browse_json(self):
         current_path = self.mineru_json_var.get().strip().strip('"')
@@ -515,7 +535,6 @@ class AppGUI:
             workspace_dir = Path(self.output_dir_var.get())
             png_dir = workspace_dir / f"{pdf_name}_pngs"
             ppt_dir = workspace_dir / f"{pdf_name}_ppt"
-            out_ppt_file = workspace_dir / f"{pdf_name}.pptx"
             tmp_image_dir = workspace_dir / "tmp_images"
             
             workspace_dir.mkdir(exist_ok=True, parents=True)
@@ -542,6 +561,10 @@ class AppGUI:
                 if not range_str:
                     return None
                 pages = set()
+                # 将中文逗号替换为英文逗号
+                range_str = range_str.replace('，', ',')
+                # 将各种中文破折号替换为英文连字符
+                range_str = range_str.replace('—', '-').replace('–', '-').replace('－', '-')
                 for part in [p.strip() for p in range_str.split(',') if p.strip()]:
                     if '-' in part:
                         start_end = part.split('-')
@@ -558,11 +581,34 @@ class AppGUI:
                         pages.add(int(part))
                 return sorted(pages)
 
+            # 将页码列表转换为字符串格式
+            def format_page_suffix(pages):
+                if not pages:
+                    return ""
+                result = []
+                i = 0
+                while i < len(pages):
+                    start = pages[i]
+                    end = start
+                    while i + 1 < len(pages) and pages[i + 1] == end + 1:
+                        i += 1
+                        end = pages[i]
+                    if start == end:
+                        result.append(str(start))
+                    else:
+                        result.append(f"{start}-{end}")
+                    i += 1
+                return f"_p{','.join(result)}"
+
             pages_list = None
             try:
                 pages_list = parse_page_range(self.page_range_var.get().strip())
             except Exception as e:
                 raise ValueError("页范围格式错误，请使用 1-3,5,7- 类似格式")
+            
+            # 根据页码范围生成文件名后缀
+            page_suffix = format_page_suffix(pages_list)
+            out_ppt_file = workspace_dir / f"{pdf_name}{page_suffix}.pptx"
             
             png_names = process_pdf_to_ppt(
                 pdf_path=pdf_file,
@@ -594,7 +640,7 @@ class AppGUI:
                 if not os.path.exists(mineru_json):
                     print(f"⚠️ 提供的 MinerU JSON 文件不存在，跳过 PPT 优化: {mineru_json}")
                 else:
-                    refined_out = workspace_dir / f"{pdf_name}_优化.pptx"
+                    refined_out = workspace_dir / f"{pdf_name}{page_suffix}_优化.pptx"
                     print(f"开始利用MinerU信息优化 PPT: {mineru_json}")
                     refine_ppt(str(tmp_image_dir), mineru_json, str(out_ppt_file), str(png_dir), png_names, str(refined_out))
                     
