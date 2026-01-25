@@ -52,7 +52,7 @@ export default defineConfig({
       { icon: 'github', link: 'https://github.com/elliottzheng/NotebookLM2PPT' }
     ],
 
-    logo: 'assets/logo_tiny.png',
+    logo: '/logo_tiny.png',
     
     footer: {
       message: '基于 MIT 许可证开源',

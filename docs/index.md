@@ -3,12 +3,15 @@ layout: home
 
 hero:
   name: "NotebookLM2PPT"
-  text: "让 NotebookLM 生成的演示文稿真正为你所用"
+  text: "让 NotebookLM 的演示文稿真正为你所用"
   tagline: 从PDF到全可编辑PPT的智能转换工具
   actions:
     - theme: brand
       text: 快速开始
       link: /quickstart
+    - theme: alt
+      text: 下载软件
+      link: https://github.com/elliottzheng/NotebookLM2PPT/releases
     - theme: alt
       text: 查看 GitHub
       link: https://github.com/elliottzheng/NotebookLM2PPT
@@ -38,7 +41,7 @@ features:
 
 ## 🌟 效果展示
 
-| 基础转换（仅使用智能圈选） | **MinerU 优化版** |
+| 基础转换PPT（仅使用智能圈选） | **MinerU 优化后PPT** |
 |  :--- | :--- |
 | ![Basic](/page_0004_1_converted.jpg) | ![MinerU](/page_0004_2_converted.jpg) |
 | ![Basic](/page_0003_1_converted.jpg) | ![MinerU](/page_0003_2_converted.jpg) |
