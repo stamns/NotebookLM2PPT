@@ -16,6 +16,8 @@ import threading
 import win32api
 import win32gui
 import win32con
+import win32com.client
+import os
 # 不要在模块级别导入 pywinauto，避免与主 GUI 冲突，导致 https://github.com/elliottzheng/NotebookLM2PPT/issues/8
 # from pywinauto import mouse, keyboard
 from pathlib import Path
@@ -73,6 +75,35 @@ def get_ppt_windows():
     return ppt_windows
 
 
+def get_all_open_ppt_info():
+    """获取所有打开的 PPT 文件信息：{文件名: 完整路径}"""
+    try:
+        # 使用 win32com.client.Dispatch 并结合 GetActiveObject 的逻辑
+        # 这种方式在处理已运行实例时更稳定
+        try:
+            powerpoint = win32com.client.GetActiveObject("PowerPoint.Application")
+        except:
+            # 如果 GetActiveObject 失败，尝试直接 Dispatch
+            powerpoint = win32com.client.Dispatch("PowerPoint.Application")
+            
+        info = {}
+        for pres in powerpoint.Presentations:
+            try:
+                # Name 通常是 "文件名.pptx"，FullName 是完整路径
+                info[pres.Name] = pres.FullName
+            except:
+                continue
+        return info
+    except Exception:
+        return {}
+
+
+def get_all_open_ppt_paths():
+    """获取所有打开的 PPT 文件路径列表（保持向下兼容）"""
+    info = get_all_open_ppt_info()
+    return list(info.values())
+
+
 def get_explorer_windows():
     """获取当前所有文件资源管理器窗口的句柄列表"""
     explorer_windows = []
@@ -88,6 +119,74 @@ def get_explorer_windows():
     
     win32gui.EnumWindows(enum_callback, explorer_windows)
     return explorer_windows
+
+
+def get_explorer_paths():
+    """获取所有文件资源管理器窗口的实际路径列表"""
+    try:
+        # 使用 win32com 代替 comtypes，更加稳定
+        shell = win32com.client.Dispatch("Shell.Application")
+        windows = shell.Windows()
+        
+        paths = []
+        for window in windows:
+            try:
+                location_url = window.LocationURL
+                if location_url.startswith('file:///'):
+                    path = location_url[8:].replace('/', '\\')
+                    paths.append(path)
+                elif location_url.startswith('::'):
+                    shell_folder = window.Document.Folder
+                    path = shell_folder.Self.Path
+                    paths.append(path)
+            except Exception as e:
+                continue
+        
+        return paths
+    except Exception as e:
+        print(f"获取文件资源管理器路径失败: {e}")
+        return []
+
+
+def get_explorer_windows_with_paths():
+    """获取当前所有文件资源管理器窗口的句柄、标题和路径列表"""
+    explorer_windows = get_explorer_windows()
+    
+    try:
+        # 使用 win32com 代替 comtypes，更加稳定
+        shell = win32com.client.Dispatch("Shell.Application")
+        windows = shell.Windows()
+        
+        result = []
+        # 遍历枚举的窗口
+        for hwnd, title in explorer_windows:
+            # 尝试匹配对应的 Shell 窗口
+            for window in windows:
+                try:
+                    # 获取窗口句柄
+                    window_hwnd = window.HWND
+                    if window_hwnd == hwnd:
+                        # 获取路径
+                        location_url = window.LocationURL
+                        if location_url.startswith('file:///'):
+                            path = location_url[8:].replace('/', '\\')
+                        elif location_url.startswith('::'):
+                            shell_folder = window.Document.Folder
+                            path = shell_folder.Self.Path
+                        else:
+                            path = None
+                        result.append((hwnd, title, path))
+                        break
+                except Exception as e:
+                    continue
+            else:
+                # 没有匹配到，添加 None 作为路径
+                result.append((hwnd, title, None))
+        
+        return result
+    except Exception as e:
+        print(f"获取文件资源管理器窗口路径失败: {e}")
+        return [(hwnd, title, None) for hwnd, title in explorer_windows]
 
 
 def check_new_ppt_window(initial_windows, timeout=30, check_interval=1, stop_flag=None):
@@ -156,14 +255,6 @@ def check_new_ppt_window(initial_windows, timeout=30, check_interval=1, stop_fla
                     
                     print(f"  ✓ 窗口加载完成: {window_text}")
                     
-                    # 如果是SmartCopy窗口，识别后自动关闭
-                    if "smartcopy" in window_text.lower():
-                        try:
-                            win32gui.PostMessage(hwnd, win32con.WM_CLOSE, 0, 0)
-                            print(f"  → SmartCopy窗口已识别并关闭")
-                        except Exception as e:
-                            print(f"  → 关闭SmartCopy窗口失败: {e}")
-                    
                     return True, all_new_windows, window_text
         
         remaining = timeout - (time.time() - start_time)
@@ -185,20 +276,23 @@ def check_new_ppt_window(initial_windows, timeout=30, check_interval=1, stop_fla
     return False, [], None
 
 
-def check_and_close_download_folder(initial_explorer_windows, timeout=10, check_interval=0.5, stop_flag=None):
+def check_and_close_download_folder(initial_explorer_windows, timeout=10, check_interval=0.5, stop_flag=None, target_folder_path=None):
     """
-    检查是否出现新的文件资源管理器窗口（特别是下载文件夹），如果有则关闭
+    检查是否出现新的文件资源管理器窗口，如果有则关闭
     
     参数:
         initial_explorer_windows: 初始的文件资源管理器窗口列表 [(hwnd, title), ...]
         timeout: 超时时间（秒），默认10秒
         check_interval: 检查间隔（秒），默认0.5秒
         stop_flag: 停止标志函数，返回 True 时中断等待
+        target_folder_path: 目标文件夹路径（从PPT路径提取），用于精确匹配
     
     返回:
         int: 关闭的窗口数量
     """
     print(f"\n开始监测新的文件资源管理器窗口 (超时时间: {timeout}秒)...")
+    if target_folder_path:
+        print(f"目标文件夹路径: {target_folder_path}")
     start_time = time.time()
     closed_count = 0
     initial_hwnds = [hwnd for hwnd, _ in initial_explorer_windows]
@@ -208,29 +302,51 @@ def check_and_close_download_folder(initial_explorer_windows, timeout=10, check_
             print("检测到停止请求，中断文件资源管理器窗口检测")
             return closed_count
         
-        current_windows = get_explorer_windows()
-        new_windows = [(hwnd, title) for hwnd, title in current_windows if hwnd not in initial_hwnds]
+        # 使用新函数获取窗口信息，包含路径
+        current_windows = get_explorer_windows_with_paths()
+        
+        # 获取新窗口（只基于hwnd判断）
+        new_windows = [(hwnd, title, path) for hwnd, title, path in current_windows if hwnd not in initial_hwnds]
         
         if new_windows:
-            for hwnd, title in new_windows:
+            # 只在检测到新窗口时打印窗口信息，减少输出冗余
+            # print(f"  当前文件资源管理器窗口: {len(current_windows)}")
+            # for i, (hwnd, title, path) in enumerate(current_windows):
+            #     print(f"    [{i+1}] hwnd={hwnd}, title='{title}', path={path}")
+            
+            print(f"  检测到新窗口: {len(new_windows)}")
+            for hwnd, title, path in new_windows:
                 try:
-                    # 检查是否是下载文件夹（标题通常包含"下载"或"Downloads"）
-                    is_download_folder = "下载" in title or "Downloads" in title
+                    should_close = False
                     
-                    print(f"✓ 检测到新的文件资源管理器窗口: {title}")
-                    if is_download_folder:
-                        print(f"  → 检测到下载文件夹，正在关闭...")
+                    if target_folder_path:
+                        # 标准化路径进行比较
+                        normalized_target = os.path.normpath(target_folder_path)
+                        
+                        # 检查路径匹配
+                        if path:
+                            normalized_path = os.path.normpath(path)
+                            print(f"  比较路径: '{normalized_path}' vs '{normalized_target}'")
+                            if normalized_path == normalized_target:
+                                should_close = True
+                                print(f"✓ 检测到新的文件资源管理器窗口: {title}")
+                                print(f"  → 路径匹配目标文件夹，正在关闭...")
                     
-                    # 关闭新窗口（无论是否是下载文件夹，都关闭新打开的资源管理器）
-                    win32gui.PostMessage(hwnd, win32con.WM_CLOSE, 0, 0)
-                    closed_count += 1
-                    print(f"  → 已发送关闭指令")
+                    if should_close:
+                        win32gui.PostMessage(hwnd, win32con.WM_CLOSE, 0, 0)
+                        closed_count += 1
+                        print(f"  → 已发送关闭指令")
                     
                     # 将已处理的窗口加入初始列表，避免重复处理
                     initial_hwnds.append(hwnd)
                     
                 except Exception as e:
                     print(f"  → 关闭窗口失败: {e}")
+            
+            # 一旦关闭了窗口，就退出检测循环
+            if closed_count > 0:
+                print(f"  → 已关闭 {closed_count} 个窗口，退出检测循环")
+                break
         
         remaining = timeout - (time.time() - start_time)
         if remaining > 0:
@@ -239,7 +355,7 @@ def check_and_close_download_folder(initial_explorer_windows, timeout=10, check_
     if closed_count > 0:
         print(f"\n✓ 共关闭 {closed_count} 个文件资源管理器窗口")
     else:
-        print(f"\n✓ 未检测到新的文件资源管理器窗口")
+        print(f"\n✓ 未检测到需要关闭的文件资源管理器窗口")
     
     return closed_count
 
@@ -295,11 +411,17 @@ def take_fullscreen_snip(
 
     # 记录点击前的PPT窗口和文件资源管理器窗口
     initial_ppt_windows = get_ppt_windows() if check_ppt_window else []
+    initial_ppt_paths = get_all_open_ppt_paths() if check_ppt_window else []
     initial_explorer_windows = get_explorer_windows()
     
     if check_ppt_window:
-        print(f"点击前PPT窗口数量: {len(initial_ppt_windows)}")
+        print(f"点击前PPT窗口数量: {len(initial_ppt_windows)}, 已打开路径数: {len(initial_ppt_paths)}")
     print(f"点击前文件资源管理器窗口数量: {len(initial_explorer_windows)}")
+    
+    # 打印初始文件资源管理器窗口的路径（如果可用）
+    initial_paths = get_explorer_paths()
+    if initial_paths:
+        print(f"点击前文件资源管理器窗口路径: {initial_paths}")
 
     if stop_flag and stop_flag():
         print("检测到停止请求，中断截图操作")
@@ -391,9 +513,71 @@ def take_fullscreen_snip(
     if check_ppt_window:
         success, new_windows, ppt_filename = check_new_ppt_window(initial_ppt_windows, timeout=ppt_check_timeout, stop_flag=stop_flag)
         
-        check_and_close_download_folder(initial_explorer_windows, timeout=10, stop_flag=stop_flag)
+        # 尝试获取真实的 PPT 完整路径
+        actual_ppt_path = None
+        if success:
+            # 增加重试逻辑，PowerPoint 的 COM 接口更新有时会有延迟
+            max_retries = 3
+            for retry in range(max_retries):
+                if retry > 0:
+                    time.sleep(1)
+                
+                current_info = get_all_open_ppt_info()
+                current_paths = list(current_info.values())
+                
+                # 策略 1: 寻找新增的路径
+                new_paths = [p for p in current_paths if p not in initial_ppt_paths]
+                if new_paths:
+                    actual_ppt_path = new_paths[0]
+                    print(f"  ✓ 策略 1 (路径比对) 成功获取路径: {actual_ppt_path}")
+                    break
+                
+                # 策略 2: 通过窗口标题匹配文件名
+                if ppt_filename:
+                    # 提取基础文件名，例如 "SmartCopy_123.pptx - PowerPoint" -> "SmartCopy_123.pptx"
+                    base_name = ppt_filename.replace(" - PowerPoint", "").strip()
+                    if base_name in current_info:
+                        actual_ppt_path = current_info[base_name]
+                        print(f"  ✓ 策略 2 (标题匹配) 成功获取路径: {actual_ppt_path}")
+                        break
+                    
+                    # 尝试不带扩展名的匹配
+                    base_name_no_ext = base_name.rsplit('.', 1)[0]
+                    for name, path in current_info.items():
+                        if base_name_no_ext in name:
+                            actual_ppt_path = path
+                            print(f"  ✓ 策略 2 (模糊标题匹配) 成功获取路径: {actual_ppt_path}")
+                            break
+                    if actual_ppt_path:
+                        break
+
+            if not actual_ppt_path:
+                # 如果所有策略都失败，回退到使用窗口标题
+                actual_ppt_path = ppt_filename
+                print(f"  ⚠ 未能在 Presentation 列表中找到新路径，将使用窗口标题: {ppt_filename}")
+
+            # 获取路径后，安全地关闭新打开的 PPT 窗口
+            if new_windows:
+                for hwnd in new_windows:
+                    try:
+                        title = win32gui.GetWindowText(hwnd)
+                        if "smartcopy" in title.lower() or (ppt_filename and ppt_filename in title):
+                            win32gui.PostMessage(hwnd, win32con.WM_CLOSE, 0, 0)
+                            print(f"  → 已关闭 PPT 窗口: {title}")
+                    except:
+                        continue
         
-        return success, ppt_filename, computed_offset
+        # 提取目标文件夹路径用于关闭对应的文件资源管理器窗口
+        target_folder = None
+        if actual_ppt_path and isinstance(actual_ppt_path, str) and len(actual_ppt_path) > 0:
+            try:
+                target_folder = str(Path(actual_ppt_path).parent)
+            except:
+                pass
+        
+        check_and_close_download_folder(initial_explorer_windows, timeout=10, stop_flag=stop_flag, target_folder_path=target_folder)
+        
+        return success, actual_ppt_path, computed_offset
     
     return True, None, None
 

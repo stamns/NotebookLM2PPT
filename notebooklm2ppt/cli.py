@@ -167,18 +167,22 @@ def process_pdf_to_ppt(pdf_path, png_dir, ppt_dir, delay_between_images=2, inpai
             if success and ppt_filename:
                 print(f"✓ 图片 {png_file.name} 处理完成，PPT窗口已创建: {ppt_filename}")
                 
-                # 从下载文件夹查找并复制PPT文件
-                if " - PowerPoint" in ppt_filename:
-                    base_filename = ppt_filename.replace(" - PowerPoint", "").strip()
+                # 如果返回的是完整路径，直接使用
+                if os.path.isabs(ppt_filename):
+                    ppt_source_path = Path(ppt_filename)
                 else:
-                    base_filename = ppt_filename.strip()
-                
-                if not base_filename.endswith(".pptx"):
-                    search_filename = base_filename + ".pptx"
-                else:
-                    search_filename = base_filename
-                
-                ppt_source_path = downloads_folder / search_filename
+                    # 从下载文件夹查找并复制PPT文件
+                    if " - PowerPoint" in ppt_filename:
+                        base_filename = ppt_filename.replace(" - PowerPoint", "").strip()
+                    else:
+                        base_filename = ppt_filename.strip()
+                    
+                    if not base_filename.endswith(".pptx"):
+                        search_filename = base_filename + ".pptx"
+                    else:
+                        search_filename = base_filename
+                    
+                    ppt_source_path = downloads_folder / search_filename
                 
                 if not ppt_source_path.exists():
                     print(f"  未找到 {ppt_source_path}，尝试查找最近的.pptx文件...")
