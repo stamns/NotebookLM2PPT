@@ -483,7 +483,7 @@ def take_fullscreen_snip(
     
     # Wait for the duration to simulate the drag time
 
-    time.sleep(1)
+    time.sleep(0)
     
 
 
