@@ -102,7 +102,7 @@ TRANSLATIONS = {
     "conversion_fail_msg": "处理过程中出现错误:\n{error}",
     "integer_offset_error": "完成按钮偏移需填写整数或留空",
     "language_menu": "语言",
-    "ui_language_label": "界面语言",
+    "ui_language_label": "界面语言 (UI Language)",
     "lang_zh_cn": "简体中文",
     "lang_en": "English",
     "cut": "剪切",
