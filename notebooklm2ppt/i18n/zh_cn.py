@@ -212,10 +212,12 @@ TRANSLATIONS = {
     "order_pair_desc": "将 PDF 和 JSON 按选择顺序逐一配对",
     "status_waiting": "💡 提示：选择文件后，使用下方的自动配对功能快速完成配对",
     "status_all_paired": "✅ 配对完成：{count} 个 PDF 全部配对了 JSON",
-    "status_no_paired": "📋 已添加 {count} 个 PDF（无 JSON 配对）",
+    "status_no_paired": "⚠️ 已添加 {count} 个 PDF（无 JSON 配对）。💡 下一步：可以直接点击「添加全部任务」进行处理，或手动添加 JSON 配对",
+    "status_no_paired_but_has_json": "⚠️ 已添加 {pdf_count} 个 PDF 和 {json_count} 个 JSON，但尚未配对。💡 下一步：使用上方的「智能配对」或「顺序配对」功能进行配对",
     "status_partial_paired": "✅ 配对完成：{with_json} 个已配对 JSON，{without_json} 个无配对",
     "add_all_tasks_btn": "✅ 添加全部任务",
     "no_pdf_warning": "请先添加PDF文件",
+    "json_not_paired_warning": "⚠️ JSON 文件未配对\n\n您已添加 {json_count} 个 JSON 文件，但尚未进行配对。\n\n请使用「智能配对」或「顺序配对」功能进行配对后再添加任务。",
     
     # 配对完成消息
     "order_pair_complete_all": "✅ 按序配对完成！\n\n{count} 个 PDF 全部配对了对应的 JSON 文件\n\n现在可以点击「添加全部任务」了",

@@ -1287,15 +1287,21 @@ class AppGUI:
                 else:
                     json_listbox.insert(tk.END, "[无JSON]")
             
-            # 更新配对字典
-            pairing_dict.clear()
+            # 更新配对字典：仅保留已存在的配对，新增PDF初始为未配对
+            new_pairing = {}
             for i in range(max_count):
                 pdf = pdf_listbox.get(i) if i < pdf_listbox.size() else None
-                json_path = json_listbox.get(i) if i < json_listbox.size() else None
                 
                 # 只处理真实的PDF文件
                 if pdf and not pdf.startswith("[无"):
-                    pairing_dict[pdf] = json_path if json_path and not json_path.startswith("[无") else None
+                    # 如果该PDF已在pairing_dict中，保留其原有配对；否则初始为None（未配对）
+                    if pdf in pairing_dict:
+                        new_pairing[pdf] = pairing_dict[pdf]
+                    else:
+                        new_pairing[pdf] = None
+            
+            pairing_dict.clear()
+            pairing_dict.update(new_pairing)
         
         # 辅助函数：更新配对状态显示
         def update_pair_display():
@@ -1308,10 +1314,22 @@ class AppGUI:
                 with_json = sum(1 for v in pairing_dict.values() if v)
                 without_json = len(pairing_dict) - with_json
                 
+                # 统计JSON文件数量（排除占位符）
+                json_count = 0
+                for i in range(json_listbox.size()):
+                    item = json_listbox.get(i)
+                    if not item.startswith("[无"):
+                        json_count += 1
+                
                 if with_json == len(pairing_dict):
                     msg = get_text("status_all_paired", count=len(pairing_dict))
                     color = "darkgreen"
+                elif with_json == 0 and json_count > 0:
+                    # 有JSON但没有配对
+                    msg = get_text("status_no_paired_but_has_json", pdf_count=len(pairing_dict), json_count=json_count)
+                    color = "darkorange"
                 elif with_json == 0:
+                    # 没有JSON也没有配对
                     msg = get_text("status_no_paired", count=len(pairing_dict))
                     color = "darkorange"
                 else:
@@ -1415,6 +1433,25 @@ class AppGUI:
         def add_all_tasks():
             if not pairing_dict:
                 messagebox.showwarning(get_text("info_btn"), get_text("no_pdf_warning"), parent=top)
+                return
+            
+            # 检查是否有JSON但未配对
+            with_json = sum(1 for v in pairing_dict.values() if v)
+            
+            # 统计JSON文件数量（排除占位符）
+            json_count = 0
+            for i in range(json_listbox.size()):
+                item = json_listbox.get(i)
+                if not item.startswith("[无"):
+                    json_count += 1
+            
+            # 如果有JSON但未配对，提示用户必须先进行配对
+            if json_count > 0 and with_json == 0:
+                messagebox.showwarning(
+                    get_text("info_btn"), 
+                    get_text("json_not_paired_warning", json_count=json_count), 
+                    parent=top
+                )
                 return
             
             # 弹出参数设置对话框

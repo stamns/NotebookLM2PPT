@@ -216,10 +216,12 @@ TRANSLATIONS = {
     "order_pair_desc": "Pair PDF and JSON in selection order",
     "status_waiting": "💡 Tip: After selecting files, use auto-pairing function below to complete pairing quickly",
     "status_all_paired": "✅ Pairing complete: {count} PDF(s) all paired with JSON",
-    "status_no_paired": "📋 Added {count} PDF(s) (No JSON pairing)",
+    "status_no_paired": "⚠️ Added {count} PDF(s) (No JSON pairing). 💡 Next: You can click 'Add All Tasks' directly, or manually add JSON pairing",
+    "status_no_paired_but_has_json": "⚠️ Added {pdf_count} PDF(s) and {json_count} JSON(s), but no pairing yet. 💡 Next: Use 'Smart Pair' or 'Sequential Pair' above to complete pairing",
     "status_partial_paired": "✅ Pairing complete: {with_json} paired with JSON, {without_json} unpaired",
     "add_all_tasks_btn": "✅ Add All Tasks",
     "no_pdf_warning": "Please add PDF files first",
+    "json_not_paired_warning": "⚠️ JSON Files Not Paired\n\nYou have added {json_count} JSON file(s), but they have not been paired yet.\n\nPlease use 'Smart Pair' or 'Sequential Pair' to complete pairing before adding tasks.",
     
     # Pairing Complete Messages
     "order_pair_complete_all": "✅ Sequential pairing complete!\n\n{count} PDF(s) all paired with corresponding JSON files\n\nYou can now click 'Add All Tasks'",
