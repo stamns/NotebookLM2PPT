@@ -102,6 +102,7 @@ TRANSLATIONS = {
     "conversion_fail_msg": "An error occurred during processing:\n{error}",
     "integer_offset_error": "Button offset must be an integer or empty",
     "language_menu": "Language",
+    "ui_language_label": "UI Language",
     "lang_zh_cn": "简体中文",
     "lang_en": "English",
     "cut": "Cut",

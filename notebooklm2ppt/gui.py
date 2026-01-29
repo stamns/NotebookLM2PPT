@@ -293,36 +293,30 @@ class AppGUI:
         self.queue_stop_flag = False
         self.is_queue_running = False
 
-        # 语言切换栏
-        header_frame = ttk.Frame(main_frame)
-        header_frame.pack(fill=tk.X, pady=(0, 5))
-        
-        lang_frame = ttk.Frame(header_frame)
-        lang_frame.pack(side=tk.RIGHT)
-        
-        ttk.Label(lang_frame, text=get_text("language_menu") + ": ").pack(side=tk.LEFT)
-        
-        lang_display_names = [get_text(f"lang_{code}") for code in SUPPORTED_LANGUAGES.keys()]
-        current_lang_display = get_text(f"lang_{self.lang}")
-        
-        self.lang_combo_var = tk.StringVar(value=current_lang_display)
-        lang_combo = ttk.Combobox(lang_frame, textvariable=self.lang_combo_var, values=lang_display_names, state="readonly", width=10)
-        lang_combo.pack(side=tk.LEFT)
-        lang_combo.bind("<<ComboboxSelected>>", self.on_language_combo_change)
-
         # Global Settings (全局设置)
         global_frame = ttk.LabelFrame(main_frame, text=get_text("global_settings_label"), padding="10")
         global_frame.pack(fill=tk.X, pady=5)
         global_frame.columnconfigure(1, weight=1)
 
+        # 语言选择（在全局设置中第一行）
+        ttk.Label(global_frame, text=get_text("ui_language_label")).grid(row=0, column=0, sticky=tk.W, pady=5)
+        
+        lang_display_names = [get_text(f"lang_{code}") for code in SUPPORTED_LANGUAGES.keys()]
+        current_lang_display = get_text(f"lang_{self.lang}")
+        
+        self.lang_combo_var = tk.StringVar(value=current_lang_display)
+        lang_combo = ttk.Combobox(global_frame, textvariable=self.lang_combo_var, values=lang_display_names, state="readonly", width=15)
+        lang_combo.grid(row=0, column=1, padx=5, pady=5, sticky="w")
+        lang_combo.bind("<<ComboboxSelected>>", self.on_language_combo_change)
+
         # 输出目录（全局默认）
-        ttk.Label(global_frame, text=get_text("output_dir_label")).grid(row=0, column=0, sticky=tk.W, pady=5)
+        ttk.Label(global_frame, text=get_text("output_dir_label")).grid(row=1, column=0, sticky=tk.W, pady=5)
         self.output_dir_var = getattr(self, 'output_dir_var', tk.StringVar(value="workspace"))
         self.output_entry = ttk.Entry(global_frame, textvariable=self.output_dir_var, width=60)
-        self.output_entry.grid(row=0, column=1, padx=5, pady=5, sticky="ew")
+        self.output_entry.grid(row=1, column=1, padx=5, pady=5, sticky="ew")
         self._setup_path_entry(self.output_entry)
-        ttk.Button(global_frame, text=get_text("browse_btn"), command=self.browse_output).grid(row=0, column=2, pady=5)
-        ttk.Button(global_frame, text=get_text("open_btn"), command=self.open_output_dir).grid(row=0, column=3, pady=5, padx=5)
+        ttk.Button(global_frame, text=get_text("browse_btn"), command=self.browse_output).grid(row=1, column=2, pady=5)
+        ttk.Button(global_frame, text=get_text("open_btn"), command=self.open_output_dir).grid(row=1, column=3, pady=5, padx=5)
 
         # Automation Settings (自动化相关设置)
         opt_frame = ttk.LabelFrame(main_frame, text=get_text("automation_settings_label"), padding="10")
