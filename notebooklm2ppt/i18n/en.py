@@ -174,4 +174,12 @@ TRANSLATIONS = {
     "yes": "Yes",
     "no": "No",
     "save_btn": "Save Changes",
+    "global_settings_label": "🌐 Global Settings",
+    "automation_settings_label": "🤖 Automation Settings (Applies to all tasks)",
+    "automation_warning": "These settings apply to all tasks, please ensure PC Manager is running",
+    "add_task_title": "Add New Task",
+    "task_params_label": "⚙️ Task Conversion Parameters",
+    "add_btn": "Add Task",
+    "cancel_btn": "Cancel",
+    "drag_drop_added": "Added {count} task(s) to queue",
 }

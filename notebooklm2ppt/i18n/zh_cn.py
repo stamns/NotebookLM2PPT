@@ -170,4 +170,13 @@ TRANSLATIONS = {
     "yes": "是",
     "no": "否",
     "save_btn": "保存修改",
+    "global_settings_label": "🌐 全局设置",
+    "automation_settings_label": "🤖 自动化设置（对所有任务生效）",
+    "automation_warning": "这些设置对所有任务生效，请确保电脑管家已启动",
+    "add_task_title": "添加新任务",
+    "task_params_label": "⚙️ 任务转换参数",
+    "add_btn": "添加任务",
+    "cancel_btn": "取消",
+    "drag_drop_added": "已添加 {count} 个任务到队列",
+    "queue_task_done": "任务完成: {file}",
 }
