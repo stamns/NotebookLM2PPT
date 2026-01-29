@@ -1,6 +1,6 @@
 import numpy as np
 
-def compute_edge_diversity_numpy(image_cv, left, top, right, bottom, tolerance=10):
+def compute_edge_diversity_numpy(image_cv, left, top, right, bottom, tolerance=15):
     """
     使用 Numpy 替代 DBSCAN 计算边缘颜色一致性。
     tolerance: 容差，类似于 DBSCAN 的 eps。值越大，越忽略颜色微小差异。

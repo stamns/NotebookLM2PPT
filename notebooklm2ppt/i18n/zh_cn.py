@@ -34,6 +34,8 @@ TRANSLATIONS = {
     "inpaint_method_label": "图像修复方法:",
     "image_only_label": "仅图片模式（跳过智能圈选，PPT不可编辑）",
     "force_regenerate_label": "强制重新生成所有页面",
+    "unify_font_label": "统一字体",
+    "font_name_label": "目标字体:",
     "page_range_label": "页码范围:",
     "page_range_hint": "留空=全部，示例: 1-3,5,7-9",
     "button_offset_label": "按钮偏移 (像素):",

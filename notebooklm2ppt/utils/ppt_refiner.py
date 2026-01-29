@@ -92,7 +92,7 @@ def get_indices_from_png_names(png_names):
     return indices
 
 
-def refine_ppt(tmp_image_dir, json_file, ppt_file, png_dir, png_files, final_out_ppt_file):
+def refine_ppt(tmp_image_dir, json_file, ppt_file, png_dir, png_files, final_out_ppt_file, unify_font=False, font_name="Calibri"):
     png_files = [os.path.join(png_dir, name) for name in png_files]
     indices = get_indices_from_png_names(png_files)
     os.makedirs(tmp_image_dir, exist_ok=True)
@@ -148,31 +148,12 @@ def refine_ppt(tmp_image_dir, json_file, ppt_file, png_dir, png_files, final_out
             assert top+height <= ppt_H +10
 
             # Create a font
-            newFont = TextFont("微软雅黑")
+            if unify_font:
+                newFont = TextFont(font_name)
 
-            # Loop through the text ranges in the paragraph
-            for textRange in paragraph.TextRanges:
-                textRange.LatinFont = newFont # 更换字体
-
-        # 替换图片    
-        image_blocks = get_scaled_para_blocks(ppt_scale,pdf_info, page_index,'only_image')
-        for image_block in image_blocks:
-            for line in image_block['lines']:
-                for span in line['spans']:
-                    tmp_image_path = os.path.join(tmp_image_dir, os.path.basename(span['image_path']))
-
-                    download_image(span['image_path'], tmp_image_path)
-
-                    left, top, right, bottom = image_block['bbox']
-
-                    delta_y = 2 # 下移两个像素
-
-                    rect1 = RectangleF.FromLTRB(left, top + delta_y, right, bottom + delta_y)
-                    image = slide.Shapes.AppendEmbedImageByPath(ShapeType.Rectangle, tmp_image_path, rect1)
-                    image.Line.FillType = FillFormatType.none
-                    image.ZOrderPosition = 0  # 设置图片在最底层
-        
-
+                # Loop through the text ranges in the paragraph
+                for textRange in paragraph.TextRanges:
+                    textRange.LatinFont = newFont # 更换字体
         # 替换背景    
         background = slide.SlideBackground
         old_bg_file = "old_bg.png"
@@ -188,9 +169,6 @@ def refine_ppt(tmp_image_dir, json_file, ppt_file, png_dir, png_files, final_out
 
         # Set the fill mode of the slide's background as a picture fill
         background.Fill.FillType = FillFormatType.Picture
-
-        # Add an image to the image collection of the presentation
-
         png_file = png_files[page_index]
         image_cv = Image.open(png_file)
         image_cv = np.array(image_cv)
@@ -205,19 +183,57 @@ def refine_ppt(tmp_image_dir, json_file, ppt_file, png_dir, png_files, final_out
 
         image_scale = image_w / pdf_w
 
-        # 对于所有文本块和图片块都进行填充
-        text_blocks = get_scaled_para_blocks(image_scale, pdf_info, page_index, cond='no_image') + get_scaled_para_blocks(image_scale, pdf_info, page_index, cond='only_image')
+        # 转换系数
+        ppt_to_bg_factor = image_scale / ppt_scale
 
+        def to_bg(x):
+            return round(x * ppt_to_bg_factor)
+        
+        def fill_blocks(blocks_to_fill):
+            for block_to_fill in blocks_to_fill:
+                bbox = block_to_fill['bbox']
+                l, t, r, b = map(round, bbox)
+                diversity, fill_color = compute_edge_diversity_numpy(image_cv, l, t, r, b, tolerance=15)
+                if old_bg_cv is None or diversity < 0.5: # 边缘多样性低，认为是纯色区域，则可以直接填充
+                    image_cv[t:b, l:r] = fill_color
+                    action = 'fill'
+                else: # 边缘多样性高，保留原背景
+                    image_cv[t:b, l:r] = old_bg_cv[t:b, l:r] # 保留原背景的前提是要有原背景图
+                    action = 'keep'
+                print("div=", diversity, action, fill_color, " block_to_fill=", block_to_fill)
 
-        for text_block in text_blocks:
-            bbox = text_block['bbox']
-            l, t, r, b = map(round, bbox)
-            diversity, fill_color = compute_edge_diversity_numpy(image_cv, l, t, r, b)
-            print("div=", diversity, " text_block=", text_block)
-            if old_bg_cv is None or diversity < 0.5: # 边缘多样性低，认为是纯色区域，则可以直接填充
-                image_cv[t:b, l:r] = fill_color
-            else: # 边缘多样性高，保留原背景
-                image_cv[t:b, l:r] = old_bg_cv[t:b, l:r] # 保留原背景的前提是要有原背景图
+        # 对于所有文本块进行填充
+        text_blocks = get_scaled_para_blocks(image_scale, pdf_info, page_index, cond='no_image')
+        fill_blocks(text_blocks)
+
+        # 替换图片    
+        image_blocks = get_scaled_para_blocks(ppt_scale,pdf_info, page_index,'only_image')
+        for image_block in image_blocks:
+            for line in image_block['lines']:
+                for span in line['spans']:
+                    tmp_image_path = os.path.join(tmp_image_dir, os.path.basename(span['image_path']))
+
+                    # download_image(span['image_path'], tmp_image_path)
+
+                    left, top, right, bottom = image_block['bbox']
+
+                    left_bg = to_bg(left)
+                    top_bg = to_bg(top)
+                    right_bg = to_bg(right)
+                    bottom_bg = to_bg(bottom)
+                    
+                    image_crop = image_cv[top_bg:bottom_bg, left_bg:right_bg]
+                    Image.fromarray(image_crop).save(tmp_image_path)
+
+                    delta_y = 2 # 下移两个像素
+
+                    rect1 = RectangleF.FromLTRB(left, top + delta_y, right, bottom + delta_y)
+                    image = slide.Shapes.AppendEmbedImageByPath(ShapeType.Rectangle, tmp_image_path, rect1)
+                    image.Line.FillType = FillFormatType.none
+                    image.ZOrderPosition = 0  # 设置图片在最底层
+        # 擦除图片块的背景
+        image_blocks = get_scaled_para_blocks(image_scale, pdf_info, page_index, cond='only_image')
+        fill_blocks(image_blocks)
 
         tmp_bg_file = png_file.replace('.png', '_bg.png')
         Image.fromarray(image_cv).save(tmp_bg_file)

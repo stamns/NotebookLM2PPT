@@ -302,6 +302,26 @@ class AppGUI:
         ttk.Button(file_frame, text=get_text("browse_btn"), command=self.browse_json).grid(row=2, column=2, pady=5)
         ttk.Button(file_frame, text=get_text("info_btn"), command=self.show_mineru_info).grid(row=2, column=3, pady=5, padx=5)
 
+        self.unify_font_var = getattr(self, 'unify_font_var', tk.BooleanVar(value=False))
+        self.font_name_var = getattr(self, 'font_name_var', tk.StringVar(value="Calibri"))
+        
+        self.unify_font_frame = ttk.Frame(file_frame)
+        self.unify_font_frame.grid(row=3, column=1, columnspan=3, sticky=tk.W, pady=(0, 5))
+        
+        self.unify_font_check = ttk.Checkbutton(self.unify_font_frame, text=get_text("unify_font_label"), variable=self.unify_font_var)
+        self.unify_font_check.pack(side=tk.LEFT)
+        
+        self.font_label = ttk.Label(self.unify_font_frame, text=get_text("font_name_label"))
+        self.font_label.pack(side=tk.LEFT, padx=(10, 2))
+        
+        self.font_entry = ttk.Entry(self.unify_font_frame, textvariable=self.font_name_var, width=15)
+        self.font_entry.pack(side=tk.LEFT)
+        self.add_context_menu(self.font_entry)
+
+        if not hasattr(self, '_mineru_json_trace'):
+            self._mineru_json_trace = self.mineru_json_var.trace_add('write', lambda *args: self.update_unify_font_visibility())
+        self.update_unify_font_visibility()
+
         ttk.Label(file_frame, text=get_text("output_dir_label")).grid(row=1, column=0, sticky=tk.W, pady=5)
         self.output_dir_var = getattr(self, 'output_dir_var', tk.StringVar(value="workspace"))
         output_entry = ttk.Entry(file_frame, textvariable=self.output_dir_var, width=60)
@@ -521,6 +541,13 @@ class AppGUI:
             if not result:
                 self.image_only_var.set(False)
 
+    def update_unify_font_visibility(self):
+        """根据是否选择 MinerU JSON 动态显示统一字体选项"""
+        if self.mineru_json_var.get().strip():
+            self.unify_font_frame.grid(row=3, column=1, columnspan=3, sticky=tk.W, pady=(0, 5))
+        else:
+            self.unify_font_frame.grid_forget()
+
     def show_inpaint_method_info(self):
         from .utils.image_inpainter import INPAINT_METHODS
         
@@ -613,6 +640,7 @@ class AppGUI:
             "inpaint_method": current_method_id,
             "image_only": self.image_only_var.get(),
             "force_regenerate": self.force_regenerate_var.get(),
+            "unify_font": self.unify_font_var.get(),
             "done_offset": self.done_offset_var.get(),
             "last_pdf_dir": getattr(self, 'last_pdf_dir', ''),
             "last_json_dir": getattr(self, 'last_json_dir', ''),
@@ -644,6 +672,7 @@ class AppGUI:
                     
                     self.image_only_var.set(config_data.get("image_only", False))
                     self.force_regenerate_var.set(config_data.get("force_regenerate", False))
+                    self.unify_font_var.set(config_data.get("unify_font", False))
                     offset_value = config_data.get("done_offset", "")
                     self.update_offset_related_gui(offset_value)
                     self.last_pdf_dir = config_data.get("last_pdf_dir", '')
@@ -896,7 +925,7 @@ class AppGUI:
                     else:
                         refined_out = workspace_dir / f"{pdf_name}{page_suffix}_optimized.pptx"
                         print(get_text("mineru_optimizing", file=mineru_json))
-                        refine_ppt(str(tmp_image_dir), mineru_json, str(out_ppt_file), str(png_dir), png_names, str(refined_out))
+                        refine_ppt(str(tmp_image_dir), mineru_json, str(out_ppt_file), str(png_dir), png_names, str(refined_out), unify_font=unify_font, font_name=font_name)
                         
                         print(get_text("refine_ppt_done"))
                         extra_message = "\n\n" + get_text("refine_extra_msg")
@@ -927,6 +956,8 @@ class AppGUI:
             "inpaint_method": self.inpaint_method_var.get(),
             "image_only": self.image_only_var.get(),
             "force_regenerate": self.force_regenerate_var.get(),
+            "unify_font": self.unify_font_var.get(),
+            "font_name": self.font_name_var.get().strip() or "Calibri",
             "page_range": self.page_range_var.get().strip()
         }
 
@@ -1119,14 +1150,22 @@ class AppGUI:
             ("inpaint_method_label", "inpaint_method", "combo_method"),
             ("image_only_label", "image_only", "bool"),
             ("force_regenerate_label", "force_regenerate", "bool"),
+            ("unify_font_label", "unify_font", "bool"),
+            ("font_name_label", "font_name", "entry"),
             ("page_range_label", "page_range", "entry"),
         ]
         
+        # 存储可能需要隐藏的组件
+        unify_font_widgets = []
+        font_name_widgets = []
+        
         for i, (lbl_key, set_key, widget_type) in enumerate(s_items):
             # 移除 wraplength，让标签自然显示，同时增加 grid 的权重配置
-            ttk.Label(set_frame, text=get_text(lbl_key), font=("", 9, "bold")).grid(row=i, column=0, sticky="nw", pady=5)
+            lbl = ttk.Label(set_frame, text=get_text(lbl_key), font=("", 9, "bold"))
+            lbl.grid(row=i, column=0, sticky="nw", pady=5)
             
             curr_val = settings.get(set_key)
+            widget = None
             
             if widget_type == "bool":
                 var = tk.BooleanVar(value=bool(curr_val))
@@ -1134,37 +1173,62 @@ class AppGUI:
                 # Checkbutton 在禁用时很难看清，如果是锁定状态，我们用 Label 显示“是/否”
                 if not is_editable:
                     val_text = get_text("yes") if var.get() else get_text("no")
-                    ttk.Label(set_frame, text=val_text).grid(row=i, column=1, sticky="w", padx=10)
+                    widget = ttk.Label(set_frame, text=val_text)
+                    widget.grid(row=i, column=1, sticky="w", padx=10)
                 else:
-                    ttk.Checkbutton(set_frame, variable=var).grid(row=i, column=1, sticky="w", padx=10)
+                    widget = ttk.Checkbutton(set_frame, variable=var)
+                    widget.grid(row=i, column=1, sticky="w", padx=10)
                 
             elif widget_type == "combo_method":
                 var = tk.StringVar(value=str(curr_val))
                 edit_vars[set_key] = var
                 if not is_editable:
                     # 锁定状态用只读 Entry 模拟，确保文字清晰
-                    ent = ttk.Entry(set_frame, textvariable=var, state="readonly", style="ReadOnly.TEntry")
-                    ent.grid(row=i, column=1, sticky="ew", padx=10)
+                    widget = ttk.Entry(set_frame, textvariable=var, state="readonly", style="ReadOnly.TEntry")
+                    widget.grid(row=i, column=1, sticky="ew", padx=10)
                 else:
-                    cb = ttk.Combobox(set_frame, textvariable=var, values=self.get_translated_method_names(), state="readonly")
-                    cb.grid(row=i, column=1, sticky="ew", padx=10)
+                    widget = ttk.Combobox(set_frame, textvariable=var, values=self.get_translated_method_names(), state="readonly")
+                    widget.grid(row=i, column=1, sticky="ew", padx=10)
                 
             elif widget_type == "dir_entry":
-                frame = ttk.Frame(set_frame)
-                frame.grid(row=i, column=1, sticky="ew", padx=10)
+                widget = ttk.Frame(set_frame)
+                widget.grid(row=i, column=1, sticky="ew", padx=10)
                 var = tk.StringVar(value=str(curr_val) if curr_val is not None else "")
                 edit_vars[set_key] = var
-                ttk.Entry(frame, textvariable=var, state=entry_state, style="ReadOnly.TEntry" if not is_editable else "").pack(side=tk.LEFT, fill=tk.X, expand=True)
+                ttk.Entry(widget, textvariable=var, state=entry_state, style="ReadOnly.TEntry" if not is_editable else "").pack(side=tk.LEFT, fill=tk.X, expand=True)
                 def browse_dir(v=var):
                     d = filedialog.askdirectory(parent=top)
                     if d: v.set(d)
                 if is_editable:
-                    ttk.Button(frame, text=get_text("browse_btn"), command=browse_dir).pack(side=tk.RIGHT, padx=5)
+                    ttk.Button(widget, text=get_text("browse_btn"), command=browse_dir).pack(side=tk.RIGHT, padx=5)
                 
             else: # entry, int_entry, float_entry
                 var = tk.StringVar(value=str(curr_val) if curr_val is not None else "")
                 edit_vars[set_key] = var
-                ttk.Entry(set_frame, textvariable=var, state=entry_state, style="ReadOnly.TEntry" if not is_editable else "").grid(row=i, column=1, sticky="ew", padx=10)
+                widget = ttk.Entry(set_frame, textvariable=var, state=entry_state, style="ReadOnly.TEntry" if not is_editable else "")
+                widget.grid(row=i, column=1, sticky="ew", padx=10)
+
+            if set_key == "unify_font":
+                unify_font_widgets = [lbl, widget, i]
+            elif set_key == "font_name":
+                font_name_widgets = [lbl, widget, i]
+
+        def update_details_unify_font_visibility(*args):
+            is_visible = bool(json_var.get().strip())
+            if is_visible:
+                unify_font_widgets[0].grid(row=unify_font_widgets[2], column=0, sticky="nw", pady=5)
+                unify_font_widgets[1].grid(row=unify_font_widgets[2], column=1, sticky="w", padx=10)
+                
+                font_name_widgets[0].grid(row=font_name_widgets[2], column=0, sticky="nw", pady=5)
+                font_name_widgets[1].grid(row=font_name_widgets[2], column=1, sticky="ew", padx=10)
+            else:
+                unify_font_widgets[0].grid_forget()
+                unify_font_widgets[1].grid_forget()
+                font_name_widgets[0].grid_forget()
+                font_name_widgets[1].grid_forget()
+
+        json_var.trace_add("write", update_details_unify_font_visibility)
+        update_details_unify_font_visibility()
 
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
@@ -1287,6 +1351,8 @@ class AppGUI:
             inpaint_method = settings.get("inpaint_method", self.inpaint_method_var.get())
             image_only = settings.get("image_only", self.image_only_var.get())
             force_regenerate = settings.get("force_regenerate", self.force_regenerate_var.get())
+            unify_font = settings.get("unify_font", self.unify_font_var.get())
+            font_name = settings.get("font_name", self.font_name_var.get())
             page_range = settings.get("page_range", self.page_range_var.get())
             
             # 全局设置（不随任务存储，始终使用界面当前值）
@@ -1405,7 +1471,7 @@ class AppGUI:
             if not image_only and mineru_json:
                 if os.path.exists(mineru_json):
                     refined_out = workspace_dir / f"{pdf_name}{page_suffix}_optimized.pptx"
-                    refine_ppt(str(tmp_image_dir), mineru_json, str(out_ppt_file), str(png_dir), png_names, str(refined_out))
+                    refine_ppt(str(tmp_image_dir), mineru_json, str(out_ppt_file), str(png_dir), png_names, str(refined_out), unify_font=unify_font)
                     out_ppt_file = os.path.abspath(refined_out)
             
             out_ppt_file = os.path.abspath(out_ppt_file)

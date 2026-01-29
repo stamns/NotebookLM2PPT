@@ -34,6 +34,8 @@ TRANSLATIONS = {
     "inpaint_method_label": "Inpaint Method:",
     "image_only_label": "Image Only Mode (Skip smart selection, PPT non-editable)",
     "force_regenerate_label": "Force Regenerate All Pages",
+    "unify_font_label": "Unify Font",
+    "font_name_label": "Target Font:",
     "page_range_label": "Page Range:",
     "page_range_hint": "Empty=All, e.g., 1-3,5,7-9",
     "button_offset_label": "Btn Offset (px):",
